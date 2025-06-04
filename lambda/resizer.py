@@ -1,19 +1,31 @@
+import boto3
 from PIL import Image
-import os
+import io
 
-def create_thumbnail(input_path, output_path, size=(128, 128)):
-    # Open the image
-    with Image.open(input_path) as img:
-        # Resize image (in-place)
-        img.thumbnail(size)
-        # Save the thumbnail
-        img.save(output_path)
-        print(f"Thumbnail saved to {output_path}")
+s3 = boto3.client('s3')
 
-# Get the directory where this script is located
-script_dir = os.path.dirname(os.path.abspath(__file__))
-# Build absolute paths for input and output files
-input_path = os.path.join(script_dir, "files", "input.png")
-output_path = os.path.join(script_dir, "files", "thumbnail.png")
+def lambda_handler(event, context):
+    for record in event['Records']:
+        bucket = record['s3']['bucket']['name']
+        key = record['s3']['object']['key']
 
-create_thumbnail(input_path, output_path)   
+        # Only process images in the "uploads/" folder
+        if not key.startswith("uploads/"):
+            continue
+
+        # Download the file
+        response = s3.get_object(Bucket=bucket, Key=key)
+        image_data = response['Body'].read()
+
+        # Resize the image
+        with Image.open(io.BytesIO(image_data)) as img:
+            img.thumbnail((128, 128))
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG')
+            buffer.seek(0)
+
+            # Save thumbnail to "thumbnails/" folder
+            thumb_key = key.replace("uploads/", "thumbnails/", 1)
+            s3.put_object(Bucket=bucket, Key=thumb_key, Body=buffer, ContentType='image/jpeg')
+
+    return {"statusCode": 200, "body": "Thumbnail(s) created."}

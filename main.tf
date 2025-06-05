@@ -36,15 +36,15 @@ resource "aws_iam_policy_attachment" "lambda_policy_attach" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_lambda_function" "thumbnail" {
+resource "aws_lambda_function" "resizer" {
   function_name = "${local.project_name}_lambda"
   role          = aws_iam_role.lambda_exec.arn
   handler       = "resizer.lambda_handler"
   runtime       = var.runtime
   timeout       = 10
 
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  filename         = "${path.module}/lambda.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambda.zip")
 
   environment {
     variables = {
@@ -53,17 +53,11 @@ resource "aws_lambda_function" "thumbnail" {
   }
 }
 
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/lambda"
-  output_path = "${path.module}/lambda.zip"
-}
-
 resource "aws_s3_bucket_notification" "notify_lambda" {
   bucket = aws_s3_bucket.images.id
 
   lambda_function {
-    lambda_function_arn = aws_lambda_function.thumbnail.arn
+    lambda_function_arn = aws_lambda_function.resizer.arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "uploads/"
   }
@@ -74,7 +68,7 @@ resource "aws_s3_bucket_notification" "notify_lambda" {
 resource "aws_lambda_permission" "allow_s3" {
   statement_id  = "AllowExecutionFromS3"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.thumbnail.function_name
+  function_name = aws_lambda_function.resizer.function_name
   principal     = "s3.amazonaws.com"
   source_arn    = aws_s3_bucket.images.arn
 }

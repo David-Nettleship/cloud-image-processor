@@ -1,0 +1,12 @@
+name: Destroy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    uses: David-Nettleship/gh-workflows/.github/workflows/destroy.yml@main

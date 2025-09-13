@@ -37,7 +37,6 @@ override.tf.json
 terraform.rc
 
 .terraform.lock*
-lambda.zip
 
 # VS Code workspace files
 .DS_Store
